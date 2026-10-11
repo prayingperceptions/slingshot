@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class RiskState:
     armed: bool = False
     tripped: bool = False
+    trip_reason: str = ""  # "max_dd" | "daily_loss" | ""
     daily_pnl: float = 0
     peak_bankroll: float = 50.0
     last_reset_ts: int = 0
@@ -14,6 +15,7 @@ _state = RiskState()
 def arm():
     _state.armed = True
     _state.tripped = False
+    _state.trip_reason = ""
 
 def check_kill_file(path="/tmp/slingshot_kill") -> bool:
     return pathlib.Path(path).exists()
@@ -32,15 +34,17 @@ def check_limits(snapshot, config, position_frac: float) -> tuple[bool, str]:
             return False, "tripped_exits_only"
         return True, "ok_tripped_exit"
 
-    # Max DD 15%
+    # Max DD 15% — sticky, requires manual re-arm
     if snapshot.drawdown_pct >= config.risk.max_drawdown_pct:
         _state.tripped = True
+        _state.trip_reason = "max_dd"
         return False, f"max_dd_{snapshot.drawdown_pct:.1f}%"
 
-    # Daily loss $10 or 30%
+    # Daily loss $10 or 30% — clears on day rollover via reset_daily()
     daily_loss_pct = (-snapshot.inventory / config.min_bankroll * 100) if snapshot.inventory < 0 else 0
     if _state.daily_pnl <= -config.risk.max_daily_loss_usd or daily_loss_pct >= config.risk.max_daily_loss_pct:
         _state.tripped = True
+        _state.trip_reason = "daily_loss"
         return False, f"daily_loss_${_state.daily_pnl:.2f}_{daily_loss_pct:.1f}%"
 
     # -20% halt require YES
@@ -58,5 +62,10 @@ def update_pnl(pnl: float):
     _state.daily_pnl += pnl
 
 def reset_daily():
+    """Day rollover: zero the daily PnL. A daily-loss trip clears;
+    a max-DD trip is sticky and needs manual re-arm."""
     _state.daily_pnl = 0
+    if _state.trip_reason == "daily_loss":
+        _state.tripped = False
+        _state.trip_reason = ""
     _state.last_reset_ts = int(time.time())
