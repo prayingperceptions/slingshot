@@ -7,6 +7,7 @@ Feeds:
 Kill file (/tmp/slingshot_kill) is checked by the risk layer every tick.
 """
 import json
+import pathlib
 import random
 import time
 import signal
@@ -67,7 +68,11 @@ def base_feed_tick(address: str, state: dict) -> dict:
     """Live read-only market data for a Base token. No orders placed."""
     pair = base_feed.best_pair(address)
     if not pair or not pair["liquidity_usd"]:
+        if not state.get("feed_warned"):
+            print("WARN: base feed unreachable, falling back to synthetic")
+            state["feed_warned"] = True
         return synthetic_feed(state)  # fall back rather than stall
+    state["feed_warned"] = False
     price = float(pair["price_usd"] or 0) or 1.0
     spread = price * 0.003
     return {
@@ -97,7 +102,8 @@ def run(feed: str = "synthetic", address: str | None = None,
     signal.signal(signal.SIGTERM, _stop)
 
     config = load_config()
-    assert config.run_mode == "paper", "loop refuses non-paper mode"
+    if config.run_mode != "paper":
+        raise SystemExit(f"loop refuses non-paper mode (config: {config.run_mode})")
     risk.arm()
     engine = Engine(config, PaperJudge(), bankroll)
     if address:
@@ -108,10 +114,36 @@ def run(feed: str = "synthetic", address: str | None = None,
     print("kill file:", config.risk.kill_file, "(touch it to flatten)")
 
     n = 0
-    with open(log_path, "a") as log:
+    errors = 0
+    current_day = time.strftime("%Y-%m-%d")
+    log_p = pathlib.Path(log_path)
+    with open(log_p, "a") as log:
         while _running:
-            md = base_feed_tick(address, feed_state) if feed == "base" and address else synthetic_feed(feed_state)
-            report = engine.tick(md)
+            # day rollover: reset daily PnL / daily-loss trips
+            today = time.strftime("%Y-%m-%d")
+            if today != current_day:
+                risk.reset_daily()
+                print(f"day rollover {current_day} -> {today}: daily PnL reset")
+                current_day = today
+            # log rotation at ~50MB to bound disk in 24/7 operation
+            if log_p.stat().st_size > 50 * 1024 * 1024:
+                rotated = log_p.with_suffix(f".{current_day}.jsonl")
+                log.close()
+                log_p.rename(rotated)
+                log = open(log_p, "a")
+                print(f"log rotated -> {rotated.name}")
+            try:
+                md = base_feed_tick(address, feed_state) if feed == "base" and address else synthetic_feed(feed_state)
+                report = engine.tick(md)
+            except Exception as e:
+                errors += 1
+                print(f"tick error {errors}/10: {type(e).__name__}: {e}")
+                if errors >= 10:
+                    print("10 consecutive tick errors — stopping safely")
+                    break
+                time.sleep(interval)
+                continue
+            errors = 0
             log.write(json.dumps(report) + "\n")
             log.flush()
             n += 1
