@@ -1,0 +1,28 @@
+app = "slingshot-velocity"
+primary_region = "ord"
+
+[env]
+  RUN_MODE = "paper"
+  RUST_LOG = "info"
+
+[[services]]
+  internal_port = 3000
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+  [[services.ports]]
+    port = 443
+    handlers = ["http", "tls"]
+
+[checks]
+  [checks.health]
+    port = 3000
+    type = "http"
+    interval = "30s"
+    timeout = "5s"
+    path = "/api/health"
