@@ -13,6 +13,7 @@ Proven: +$7,891 over 111 days on $500k at 20bps (72% win, ~5.2% ann).
 from __future__ import annotations
 
 import json
+import pathlib
 import time
 import urllib.request
 from dataclasses import dataclass, field
@@ -93,6 +94,47 @@ class FundState:
             return f"max_dd_{self.drawdown_pct:.1f}%"
         return None
 
+    def to_dict(self) -> dict:
+        return {
+            "nav": self.nav,
+            "peak_nav": self.peak_nav,
+            "positions": {k: {"coin": v.coin, "short_perp": v.short_perp,
+                              "notional": v.notional,
+                              "entry_basis_bps": v.entry_basis_bps,
+                              "entry_h": v.entry_h,
+                              "funding_acc": v.funding_acc,
+                              "hours": v.hours} for k, v in self.positions.items()},
+            "signal_streak": dict(self.signal_streak),
+            "trades": self.trades,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "FundState":
+        s = cls(nav=d.get("nav", FUND_CAPITAL),
+                peak_nav=d.get("peak_nav", FUND_CAPITAL),
+                trades=d.get("trades", []))
+        for k, v in d.get("positions", {}).items():
+            s.positions[k] = Position(**v)
+        s.signal_streak = d.get("signal_streak", {})
+        return s
+
+
+STATE_FILE = pathlib.Path(__file__).parent.parent.parent / "state" / "fund_state.json"
+
+
+def load_state() -> FundState:
+    if STATE_FILE.exists():
+        try:
+            return FundState.from_dict(json.loads(STATE_FILE.read_text()))
+        except Exception:
+            pass
+    return FundState()
+
+
+def save_state(state: FundState):
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps(state.to_dict(), indent=2))
+
 
 def round_trip_cost_bps() -> float:
     per_fill = (PERP_FEE_BPS + PERP_SLIP_BPS + SPOT_FEE_BPS + SPOT_SLIP_BPS)
@@ -136,7 +178,7 @@ class DoubleEdgeFund:
 
     def __init__(self, paper: bool = True):
         self.paper = paper
-        self.state = FundState()
+        self.state = load_state()
         self.log = []
 
     def _log(self, msg: str):
@@ -198,6 +240,7 @@ class DoubleEdgeFund:
                 self.state.signal_streak[coin] = 0
 
         self.state.peak_nav = max(self.state.peak_nav, self.state.nav)
+        save_state(self.state)
         return {"nav": round(self.state.nav, 2),
                 "positions": len(self.state.positions),
                 "dd": round(self.state.drawdown_pct, 2),
