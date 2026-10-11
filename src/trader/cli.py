@@ -45,13 +45,10 @@ def cmd_review(args):
     if not p.exists():
         print("no ticks logged yet")
         return
-    wins = losses = 0
-    for line in p.read_text().strip().split("\n"):
-        r = json.loads(line)
-        for a in r.get("actions", []):
-            if "guard_exit" in a or "entry" in a:
-                pass
-    ledgers = [json.loads(l)["ledger"] for l in p.read_text().strip().split("\n")]
+    ledgers = [json.loads(l)["ledger"] for l in p.read_text().strip().split("\n") if l.strip()]
+    if not ledgers:
+        print("no ticks logged yet")
+        return
     first, last = ledgers[0], ledgers[-1]
     print(f"ticks: {len(ledgers)}")
     print(f"bankroll: ${first['bankroll']} -> ${last['bankroll']}")
