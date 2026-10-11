@@ -57,12 +57,26 @@ UNIVERSE_US = [
 ]
 
 
-def hl_post(payload: dict, timeout: int = 15):
-    req = urllib.request.Request(
-        HL_URL, data=json.dumps(payload).encode(),
-        headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode())
+def hl_post(payload: dict, timeout: int = 15, retries: int = 3):
+    """POST to Hyperliquid via curl (urllib chokes on their chunked responses)."""
+    import subprocess
+    last_err = None
+    data = json.dumps(payload)
+    for attempt in range(retries):
+        try:
+            r = subprocess.run(
+                ["curl", "-s", "-X", "POST", HL_URL,
+                 "-H", "Content-Type: application/json",
+                 "-d", data, "--max-time", str(timeout)],
+                capture_output=True, text=True, timeout=timeout + 5)
+            if r.returncode == 0 and r.stdout.strip():
+                return json.loads(r.stdout)
+            last_err = RuntimeError(f"curl rc={r.returncode}: {r.stderr[:200]}")
+        except Exception as e:
+            last_err = e
+        if attempt < retries - 1:
+            time.sleep(2 ** attempt)
+    raise last_err
 
 
 @dataclass
