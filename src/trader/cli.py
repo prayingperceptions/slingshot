@@ -25,7 +25,7 @@ def cmd_arm(args):
 def cmd_run(args):
     from .loop import run
     run(feed=args.feed, address=args.address, interval=args.interval,
-        max_ticks=args.max_ticks, bankroll=args.bankroll)
+        max_ticks=args.max_ticks, bankroll=args.bankroll, symbol=args.symbol)
 
 
 def cmd_status(args):
@@ -79,8 +79,9 @@ def main():
     sub.add_parser("arm", help="arm the risk layer (in-process)")
 
     r = sub.add_parser("run", help="run the paper loop")
-    r.add_argument("--feed", default="synthetic", choices=["synthetic", "base"])
+    r.add_argument("--feed", default="synthetic", choices=["synthetic", "base", "hyperliquid"])
     r.add_argument("--address", default=None, help="Base token address (with --feed base)")
+    r.add_argument("--symbol", default="BTC", help="perp symbol (with --feed hyperliquid)")
     r.add_argument("--interval", type=int, default=5)
     r.add_argument("--max-ticks", type=int, default=None)
     r.add_argument("--bankroll", type=float, default=50.0)
