@@ -42,7 +42,10 @@ def compute_imbalance(bid_vol: float, ask_vol: float) -> float:
 
 def compute_rv_1h(closes: list[float]) -> float:
     if len(closes) < 2: return 0
-    rets = [math.log(closes[i]/closes[i-1]) for i in range(1, len(closes))]
+    # skip non-positive prints (bad feed data) rather than crashing
+    clean = [c for c in closes if c and c > 0]
+    if len(clean) < 2: return 0
+    rets = [math.log(clean[i]/clean[i-1]) for i in range(1, len(clean))]
     return math.sqrt(sum(r*r for r in rets) / len(rets)) * math.sqrt(3600) * 100
 
 def compute_funding_annualized(funding_8h: float) -> float:
