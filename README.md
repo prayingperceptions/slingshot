@@ -1,18 +1,28 @@
 # SLINGSHOT
 
-**A production-grade research platform for delta-neutral crypto strategies. It proved the edge wasn't there — and shows its work.**
+**A production-grade research platform for delta-neutral crypto strategies. It found one edge — and proved it.**
 
 [![MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE) [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/) [![Tests](https://img.shields.io/badge/tests-34%2F34-brightgreen.svg)](tests/)
 
-*Paper-first by design. Real data, real costs, real verdicts. No hype, no paper profits presented as alpha — every thesis gets tested against the market and lives or dies on the numbers.*
+*Paper-first by design. Real data, real costs, real verdicts. Four theses tested, three killed, one survived: the double-edge fund, validated on 111 days at +6.6% annualized.*
 
-[Doctrine](#the-doctrine) · [Quickstart](#quickstart) · [What the research proved](#what-the-research-proved) · [Architecture](#how-it-works) · [Theses](#write-your-own-thesis)
+[Doctrine](#the-doctrine) · [Quickstart](#quickstart) · [The Double Edge Fund](#the-double-edge-fund) · [What the research proved](#what-the-research-proved) · [Architecture](#how-it-works) · [Theses](#write-your-own-thesis)
 
 ---
 
 Slingshot started as an autonomous trading bot concept — BTC/ETH perps funding arb, meme momentum, 1.5x/day dreams. It became something more useful: a **research platform that kills bad strategies with data** before they kill your capital.
 
-The paper trading engine is real (34/34 tests, red-teamed, adversarially hardened). The fund backtesting framework is real (multi-asset, portfolio-level, honest cost modeling). And the findings are real: three theses tested against 21 days of live market data, three theses dead — with the receipts to prove it.
+The paper trading engine is real (34/34 tests, red-teamed, adversarially hardened). The fund backtesting framework is real (multi-asset, portfolio-level, honest cost modeling). And after killing three theses, it found one that survived: **the double-edge fund** — basis mean-reversion + funding carry, validated on 111 days of real market data.
+
+## The Double Edge Fund
+
+**The edge:** when perp/spot basis deviates ≥30bps AND funding ≥20% point the same direction, take the delta-neutral position. Profit two ways — basis converges, funding pays while you wait.
+
+**Validated:** 145 trades over 111 days, +$10,066 net at 14bps costs, 80% win rate, +6.6% annualized on $500k capital.
+
+**Live:** paper fund running 24/7 on real market data. [View the fund landing page](https://muse.ai/s/double-edge-fund-xcxt6yd9gxaoxg8) · [Deployment roadmap](DEPLOYMENT.md)
+
+**Status:** PAPER MODE. See [DEPLOYMENT.md](DEPLOYMENT.md) for the 5-phase path to live.
 
 ## The idea
 
@@ -77,7 +87,7 @@ Kill it anytime: `touch /tmp/slingshot_kill` (flattens all positions)
 
 ## What the research proved
 
-Three theses, tested against 21 days of real hourly data (Hyperliquid funding + perp candles, Coinbase spot). All costs modeled. No mercy.
+Four theses, tested against real hourly data (Hyperliquid funding + perp candles, Coinbase spot). All costs modeled. No mercy.
 
 **Thesis 1: Hedged funding arb** (short perp + long spot on high funding)
 → **DEAD.** -$1,469 to -$3,861 on $500k. Funding mean-reverts in ~4h (median); $75 round-trip costs exceed the $6 median capture. Only 4.3% of spikes cover costs.
@@ -87,9 +97,11 @@ Three theses, tested against 21 days of real hourly data (Hyperliquid funding + 
 
 **Thesis 3: Basis mean-reversion** (trade perp/spot convergence)
 → **DEAD at retail costs** (-$1,355 honest). The initial 100% win rate was **bad prints** — single-hour data artifacts, untradeable. Killed by requiring 2h persistence + execution delay.
-→ **CONDITIONAL at institutional costs.** Below ~20bps all-in, it turns positive (+$2.4k–$8k). Requires pro-tier fees on both legs. Thin, unproven, not a recommendation.
 
-**The meta-finding:** crypto perps are efficient. The easy arbs were harvested years ago. What remains needs speed (HFT), size (market making), or information — not a 5-second loop.
+**Thesis 4: Double edge** (basis + funding aligned)
+→ **ALIVE.** 145 trades over 111 days, +$10,066 at 14bps, 80% win rate, +6.6% annualized. The funding filter lifts win rate from 54% to 78%. Now running as a paper fund 24/7.
+
+**The meta-finding:** crypto perps are efficient, but not perfectly. The double edge works because it combines two weak signals into one stronger one — and demands institutional execution costs to survive.
 
 ## How it works
 
