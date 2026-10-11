@@ -16,6 +16,7 @@ from .guards import whale as g_whale
 from .guards import liquidity as g_liq
 from .guards import sentiment as g_sent
 from .guards import parabolic as g_para
+from .jev.client import JevClient
 
 
 class Engine:
@@ -55,7 +56,6 @@ class Engine:
         report["snapshot_tokens"] = len(snap.to_prompt().split())
 
         # Judge — JevClient takes the prompt string, PaperJudge takes the snapshot
-        from .jev.client import JevClient
         if isinstance(self.judge, JevClient):
             decision = self.judge.judge(snap.to_prompt())
         else:
@@ -79,19 +79,21 @@ class Engine:
                              funding_ann=snap.funding_annualized, now=now),
             ]
             if self._sent_ref:
-                s_now, s_ts = md.get("sentiment", 0.0), now
-                s_old, _ = self._sent_ref
-                if now - _ < 600:
+                s_now = md.get("sentiment", 0.0)
+                s_old, s_ts = self._sent_ref
+                if now - s_ts < 600:
                     guard_results.append(g_sent.check(s_now, s_old))
 
             # Strongest exit signal wins
             exits = [g for g in guard_results if g[0] == "exit_frac"]
             if exits:
                 exits.sort(key=lambda g: g[1], reverse=True)
-                action, frac, reason = exits[0]
+                _, frac, reason = exits[0]
+                pnl_before = self.broker.realized_pnl
                 ok, msg = self.broker.close(symbol, mid, frac)
+                # incremental PnL only — realized_pnl is cumulative
+                risk.update_pnl(self.broker.realized_pnl - pnl_before)
                 report["actions"].append({"guard_exit": reason, "result": msg})
-                risk.update_pnl(self.broker.realized_pnl)
                 continue
 
             # Stash ladder on parabolic multiples
