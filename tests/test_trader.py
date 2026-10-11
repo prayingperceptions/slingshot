@@ -68,6 +68,27 @@ class TestRisk(unittest.TestCase):
         self.assertIn("max_dd", reason)
         self.assertTrue(risk._state.tripped)
 
+    def test_daily_trip_clears_on_rollover(self):
+        cfg = load_config("config/default.toml")
+        risk.arm()
+        risk._state.daily_pnl = -11.0
+        ok, reason = risk.check_limits(snap(), cfg, 0.0)
+        self.assertFalse(ok)
+        self.assertIn("daily_loss", reason)
+        self.assertEqual(risk._state.trip_reason, "daily_loss")
+        risk.reset_daily()
+        self.assertFalse(risk._state.tripped)
+        self.assertEqual(risk._state.daily_pnl, 0)
+
+    def test_max_dd_trip_survives_rollover(self):
+        cfg = load_config("config/default.toml")
+        risk.arm()
+        ok, _ = risk.check_limits(snap(drawdown_pct=16.0), cfg, 0.0)
+        self.assertFalse(ok)
+        self.assertEqual(risk._state.trip_reason, "max_dd")
+        risk.reset_daily()
+        self.assertTrue(risk._state.tripped)  # sticky: needs manual re-arm
+
     def test_kill_file(self):
         cfg = load_config("config/default.toml")
         risk.arm()
