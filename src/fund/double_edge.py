@@ -47,6 +47,15 @@ UNIVERSE = [
     ("ALGO", "ALGO-USD"), ("ONDO", "ONDO-USD"), ("AZTEC", "AZTEC-USD"),
 ]
 
+# US-viable subset (Binance.US listed, 0% maker fees)
+# Backtest: +$886 over 111d at 11bps, 84% win (vs +$10k full universe)
+# Missing MINA/AZTEC (top performers) — tradeoff for US compliance
+UNIVERSE_US = [
+    ("NEAR", "NEAR-USD"), ("ALGO", "ALGO-USD"), ("ONDO", "ONDO-USD"),
+    ("PENGU", "PENGU-USD"), ("USELESS", "USELESS-USD"),
+    ("FARTCOIN", "FARTCOIN-USD"),
+]
+
 
 def hl_post(payload: dict, timeout: int = 15):
     req = urllib.request.Request(
