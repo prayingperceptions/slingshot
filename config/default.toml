@@ -1,0 +1,39 @@
+[run]
+mode = "paper" # paper | live
+min_bankroll = 500.0
+
+[risk]
+max_drawdown_pct = 15.0
+max_daily_loss_usd = 10.0
+max_daily_loss_pct = 30.0
+max_position_frac = 0.20
+max_position_frac_low_conf = 0.05
+halt_drawdown_pct = 20.0
+kill_file = "/tmp/slingshot_kill"
+
+[jev]
+min_confidence = 0.97
+min_confidence_escalate = 0.60
+min_setup_quality = 2
+max_brier = 0.10
+
+[execution]
+max_slippage_bps = 10
+min_depth_mult = 2.0
+min_spread_edge_bps = 20
+
+[perp]
+min_funding_annualized = 20.0
+min_basis_bps = 50.0
+
+[meme]
+min_rug_score = 95
+max_top10_pct = 12.0
+min_vol_liq_ratio = 1.0
+min_bonding_pct = 80.0
+
+[velocity]
+reinvest_until = 500.0
+split_70_30_until = 2000.0
+split_50_50_until = 10000.0
+concentration_usd = 20.0
