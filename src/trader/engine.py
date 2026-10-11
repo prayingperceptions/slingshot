@@ -36,6 +36,24 @@ class Engine:
         now = int(time.time())
         report: dict = {"ts": now, "actions": []}
 
+        # Defensive: required keys must exist and be positive.
+        # Zero/negative prices are corrupt feed data — refuse the tick.
+        for key in ("bid", "ask"):
+            if key not in md or md[key] is None or md[key] <= 0:
+                report["error"] = f"bad_market_data_{key}"
+                report["ledger"] = self.broker.ledger()
+                return report
+
+        # Kill file flattens everything — including open positions
+        if risk.check_kill_file(self.config.risk.kill_file):
+            for symbol in list(self.broker.positions):
+                pnl_before = self.broker.realized_pnl
+                ok, msg = self.broker.close(symbol, (md["bid"] + md["ask"]) / 2, 1.0)
+                risk.update_pnl(self.broker.realized_pnl - pnl_before)
+                report["actions"].append({"kill_flatten": msg})
+            report["ledger"] = self.broker.ledger()
+            return report
+
         snap = build_snapshot(
             bid=md["bid"], ask=md["ask"],
             bid_vol=md.get("bid_vol", 1.0), ask_vol=md.get("ask_vol", 1.0),
@@ -55,11 +73,17 @@ class Engine:
         )
         report["snapshot_tokens"] = len(snap.to_prompt().split())
 
-        # Judge — JevClient takes the prompt string, PaperJudge takes the snapshot
-        if isinstance(self.judge, JevClient):
-            decision = self.judge.judge(snap.to_prompt())
-        else:
-            decision = self.judge.judge(snap)
+        # Judge — JevClient takes the prompt string, PaperJudge takes the snapshot.
+        # A judge failure skips trading this tick; it never kills the loop.
+        try:
+            if isinstance(self.judge, JevClient):
+                decision = self.judge.judge(snap.to_prompt())
+            else:
+                decision = self.judge.judge(snap)
+        except Exception as e:
+            report["judge_error"] = f"{type(e).__name__}: {e}"
+            report["ledger"] = self.broker.ledger()
+            return report
         report["decision"] = decision.model_dump()
 
         mid = snap.mid
