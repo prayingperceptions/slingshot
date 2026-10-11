@@ -1,0 +1,24 @@
+{
+  "BTC": {
+    "funding": {
+      "points": 500
+    },
+    "perp": {
+      "points": 500
+    },
+    "spot": {
+      "points": 500
+    }
+  },
+  "ETH": {
+    "funding": {
+      "points": 500
+    },
+    "perp": {
+      "points": 500
+    },
+    "spot": {
+      "points": 500
+    }
+  }
+}
