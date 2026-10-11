@@ -94,9 +94,25 @@ def base_feed_tick(address: str, state: dict) -> dict:
     }
 
 
+def hyperliquid_feed_tick(symbol: str, state: dict) -> dict:
+    """Real Hyperliquid perp data (public API, read-only). Falls back to
+    synthetic on outage, with a warning."""
+    from .execution import hyperliquid as hl
+    try:
+        md = hl.fetch_perp_snapshot(symbol)
+        state["feed_warned"] = False
+        return md
+    except Exception as e:
+        if not state.get("feed_warned"):
+            print(f"WARN: hyperliquid feed failed ({e}), falling back to synthetic")
+            state["feed_warned"] = True
+        return synthetic_feed(state)
+
+
 def run(feed: str = "synthetic", address: str | None = None,
         interval: int = 5, max_ticks: int | None = None,
-        bankroll: float = 50.0, log_path: str = "state/ticks.jsonl"):
+        bankroll: float = 50.0, log_path: str = "state/ticks.jsonl",
+        symbol: str = "BTC"):
     global _running
     signal.signal(signal.SIGINT, _stop)
     signal.signal(signal.SIGTERM, _stop)
@@ -133,7 +149,13 @@ def run(feed: str = "synthetic", address: str | None = None,
                 log = open(log_p, "a")
                 print(f"log rotated -> {rotated.name}")
             try:
-                md = base_feed_tick(address, feed_state) if feed == "base" and address else synthetic_feed(feed_state)
+                if feed == "hyperliquid":
+                    md = hyperliquid_feed_tick(symbol, feed_state)
+                    engine.symbol = f"{symbol}-PERP"
+                elif feed == "base" and address:
+                    md = base_feed_tick(address, feed_state)
+                else:
+                    md = synthetic_feed(feed_state)
                 report = engine.tick(md)
             except Exception as e:
                 errors += 1
