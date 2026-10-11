@@ -40,13 +40,13 @@ class PaperBroker:
         self.realized_pnl = 0.0
 
     def open(self, symbol: str, side: str, size_usd: float, mid: float,
-             depth_2x: float, slippage_bps: float) -> tuple[bool, str]:
+             depth_2x: float, slippage_bps: float, fee_bps: float = 5) -> tuple[bool, str]:
         if symbol in self.positions:
             return False, "already_open"
         ok, price = book_walk_fill(mid, size_usd, depth_2x, slippage_bps)
         if not ok:
             return False, "fill_rejected_depth_or_slippage"
-        fee = price * (size_usd / price) * 5 / 10000  # 5bps
+        fee = size_usd * fee_bps / 10000
         self.positions[symbol] = Position(
             symbol=symbol, side=side, size_usd=size_usd,
             entry_price=price, peak_price=price, opened_ts=int(time.time()),
@@ -54,14 +54,14 @@ class PaperBroker:
         self.fills.append(Fill(int(time.time()), symbol, side, size_usd, price, fee, "open"))
         return True, f"opened_{side}_{size_usd:.2f}_at_{price:.4f}"
 
-    def close(self, symbol: str, mid: float, frac: float = 1.0) -> tuple[bool, str]:
+    def close(self, symbol: str, mid: float, frac: float = 1.0, fee_bps: float = 5) -> tuple[bool, str]:
         pos = self.positions.get(symbol)
         if not pos:
             return False, "no_position"
         close_usd = pos.size_usd * frac
         qty = close_usd / pos.entry_price
         pnl = calc_pnl(pos.entry_price, mid, qty, pos.side)
-        fee = mid * qty * 5 / 10000
+        fee = mid * qty * fee_bps / 10000
         net = pnl - fee
         self.realized_pnl += net
         self.bankroll += net
